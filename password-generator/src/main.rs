@@ -8,7 +8,14 @@ use clap::Parser;
 //      97-122 => {a ... z}
 
 //                             <-special chars->   <Numbers> <small and cap chars>
-const RANGES: [(u8, u8); 5] = [(33, 46), (58, 64), (48, 57), (65, 90), (97, 122)];
+const RANGES: [(u8, u8); 6] = [
+    (33, 47),   //  special characters
+    (58, 64),   //   "           "
+    (123, 126), //   "           "
+    (48, 57),   //      Numbers 
+    (65, 90),   //  Small Characters
+    (97, 122),  // Captial Characters
+];
 
 use rand::Rng;
 
@@ -28,7 +35,7 @@ fn main() {
     let args = Args::parse();
     let mut rng = rand::thread_rng();
     let mut pass = String::new();
-    let start: usize = if args.spec_chars { 0 } else { 2 };
+    let start: usize = if args.spec_chars { 0 } else { 3 };
     for _ in 0..args.length {
         let a = rng.gen_range(start..RANGES.len());
         let cur_range = RANGES[a];

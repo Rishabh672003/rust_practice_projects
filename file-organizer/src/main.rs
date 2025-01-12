@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::{OsStr, OsString};
 use std::fs;
-// use std::fs::{File, OpenOptions};
 use std::io;
-// use std::io::prelude::*;
 use std::os::unix;
 use std::path::{Path, PathBuf};
 
