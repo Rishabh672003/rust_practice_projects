@@ -1,13 +1,12 @@
 use clap::Parser;
 
 // ranges:
-//      33-46  => {! ... .}
+//      33-47  => {! ... /}
 //      48-57  => {0 ... 9}
 //      58-64  => {; ... @}
 //      65-90  => {A ... Z}
 //      97-122 => {a ... z}
 
-//                             <-special chars->   <Numbers> <small and cap chars>
 const RANGES: [(u8, u8); 6] = [
     (33, 47),   //  special characters
     (58, 64),   //   "           "

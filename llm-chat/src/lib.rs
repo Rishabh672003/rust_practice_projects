@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
-use std::{env, process};
+use std::process;
 
 const API: &str = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -33,14 +33,12 @@ pub struct Message {
     content: String,
 }
 
-#[derive(Debug)]
 pub struct Config<'a> {
-    pub user_role: String,
     pub model: String,
     pub arguments: &'a Vec<String>,
     pub history_filepath: String,
     pub context: usize,
-    pub not_save: bool,
+    pub dont_save: bool,
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -90,15 +88,15 @@ fn get_history(config: &Config) -> JsonData {
     let reader = BufReader::new(&file);
     let data: JsonData = match serde_json::from_reader(reader) {
         Ok(data) => data,
-        Err(e) => { 
+        Err(e) => {
             eprintln!("{e}");
             process::exit(1)
-        },
+        }
     };
     data
 }
 
-pub fn show_history(config: &Config, count: usize){
+pub fn show_history(config: &Config, count: usize) {
     let data = get_history(config);
     for entry in data.chatlog.iter().rev().take(count) {
         println!("Prompt: {}", entry.prompt);
@@ -106,39 +104,39 @@ pub fn show_history(config: &Config, count: usize){
     }
 }
 
-pub async fn run(config: &Config<'_>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(config: &Config<'_>, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
+    if api_key.is_empty() {
+        eprintln!("Error: Api key is not set properly");
+        process::exit(1)
+    }
+
     let client = reqwest::Client::new();
-    let history = get_history(config);
     let mut content_str = String::new();
-    for entry in history.chatlog.iter().rev().take(config.context) {
-        content_str.push_str(&entry.prompt);
-        content_str.push('\n');
-        content_str.push_str(&entry.response);
-        content_str.push('\n');
+
+    if config.context > 0 {
+        let history = get_history(config);
+        for entry in history.chatlog.iter().rev().take(config.context) {
+            content_str.push_str(&entry.prompt);
+            content_str.push('\n');
+            content_str.push_str(&entry.response);
+            content_str.push('\n');
+        }
     }
     content_str.push_str(&config.arguments.join(" "));
 
     let req = GroqRequest {
         model: config.model.clone(),
         messages: vec![GroqMessage {
-            role: config.user_role.clone(),
+            role: "user".to_string(),
             content: content_str.clone(),
         }],
     };
 
-    let api_key = match env::var("GROQ_API_KEY") {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: Please make sure your groq api key is in the environment");
-            process::exit(1)
-        }
-    };
-
     let response = client
         .post(API)
-        .json(&req)
         .header("Content-Type", "application/json")
         .header("Authorization", format!("Bearer {}", api_key))
+        .json(&req)
         .send()
         .await?;
 
@@ -150,7 +148,7 @@ pub async fn run(config: &Config<'_>) -> Result<(), Box<dyn std::error::Error>> 
         prompt: content_str,
         response: llm_response.to_string(),
     };
-    if !config.not_save {
+    if !config.dont_save {
         save_to_file(entry, config)?;
     }
     Ok(())
