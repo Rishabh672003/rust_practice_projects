@@ -1,5 +1,6 @@
 use std::{env, process};
 
+use anyhow::Result;
 use clap::CommandFactory;
 use clap::{Parser, Subcommand};
 use clap_complete::Shell;
@@ -55,11 +56,14 @@ enum Commands {
     Completion {
         #[clap(value_enum)]
         shell: Shell,
+
+        #[arg(short, long, default_value_t = String::from("llm_chat"))]
+        cmdname: String,
     },
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<()> {
     let cli = Args::parse();
 
     let config = llm_chat::Config {
@@ -77,12 +81,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     match &cli.command {
-        Some(Commands::ShowHistory { count }) => {
-            llm_chat::show_history(&config, *count);
-        }
-        Some(Commands::Completion { shell }) => {
+        Some(Commands::ShowHistory { count }) => match llm_chat::show_history(&config, *count) {
+            Ok(_) => {}
+            Err(err) => {
+                eprintln!("{} occured", err)
+            }
+        },
+        Some(Commands::Completion { shell, cmdname }) => {
             let mut cmd = Args::command();
-            clap_complete::generate(*shell, &mut cmd, "llm_chat", &mut std::io::stdout());
+            clap_complete::generate(*shell, &mut cmd, cmdname, &mut std::io::stdout());
         }
         None => {
             let api_key = match cli.api_key {

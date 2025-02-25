@@ -1,4 +1,6 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
@@ -6,13 +8,13 @@ use std::process;
 
 const API: &str = "https://api.groq.com/openai/v1/chat/completions";
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct GroqMessage {
     role: String,
     content: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 pub struct GroqRequest {
     model: String,
     messages: Vec<GroqMessage>,
@@ -41,18 +43,18 @@ pub struct Config<'a> {
     pub dont_save: bool,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize)]
 struct Entry {
     prompt: String,
     response: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize)]
 struct JsonData {
     chatlog: Vec<Entry>,
 }
 
-fn save_to_file(res: Entry, config: &Config) -> Result<(), Box<dyn std::error::Error>> {
+fn save_to_file(res: Entry, config: &Config) -> Result<()> {
     let history_path = Path::new(&config.history_filepath);
 
     if !history_path.exists() {
@@ -77,34 +79,43 @@ fn save_to_file(res: Entry, config: &Config) -> Result<(), Box<dyn std::error::E
     Ok(())
 }
 
-fn get_history(config: &Config) -> JsonData {
-    let file = match File::open(&config.history_filepath) {
-        Ok(value) => value,
-        Err(_) => {
-            eprintln!("Error: Couldnt open file");
-            process::exit(1)
-        }
-    };
+fn get_history(config: &Config) -> Result<JsonData> {
+    let file = File::open(&config.history_filepath)
+        .with_context(|| "Failed to open config file".to_string())?;
     let reader = BufReader::new(&file);
-    let data: JsonData = match serde_json::from_reader(reader) {
-        Ok(data) => data,
-        Err(e) => {
-            eprintln!("{e}");
-            process::exit(1)
-        }
-    };
-    data
+    let data: JsonData =
+        serde_json::from_reader(reader).with_context(|| "Couldn't Deserialize data".to_string())?;
+    Ok(data)
 }
 
-pub fn show_history(config: &Config, count: usize) {
-    let data = get_history(config);
-    for entry in data.chatlog.iter().rev().take(count) {
-        println!("Prompt: {}", entry.prompt);
-        println!("Response: {}\n", entry.response);
+pub fn show_history(config: &Config, count: usize) -> Result<()> {
+    let mut data = get_history(config).with_context(|| {
+        "Couldnt retrieve history from the config file for some reason".to_string()
+    })?;
+
+    if data.chatlog.is_empty() {
+        eprintln!("Chat log is empty");
+        return Ok(());
     }
+
+    let output = data
+        .chatlog
+        .iter_mut()
+        .rev()
+        .take(count)
+        .fold(String::new(), |mut out, b| {
+            let _ = write!(
+                out,
+                "_Prompt_: {}\n_Response_: {}\n",
+                b.prompt, b.response
+            );
+            out
+        });
+    println!("{}", output);
+    Ok(())
 }
 
-pub async fn run(config: &Config<'_>, api_key: &String) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run(config: &Config<'_>, api_key: &String) -> Result<()> {
     if api_key.is_empty() {
         eprintln!("Error: Api key is not set properly");
         process::exit(1)
@@ -113,13 +124,20 @@ pub async fn run(config: &Config<'_>, api_key: &String) -> Result<(), Box<dyn st
     let client = reqwest::Client::new();
     let mut content_str = String::new();
 
-    if config.context > 0 {
-        let history = get_history(config);
-        for entry in history.chatlog.iter().rev().take(config.context) {
-            content_str.push_str(&entry.prompt);
-            content_str.push('\n');
-            content_str.push_str(&entry.response);
-            content_str.push('\n');
+    match get_history(config) {
+        Ok(history) => {
+            for entry in history.chatlog.iter().rev().take(config.context) {
+                content_str.push_str(&entry.prompt);
+                content_str.push('\n');
+                content_str.push_str(&entry.response);
+                content_str.push('\n');
+            }
+        }
+        Err(err) => {
+            if config.context > 0 {
+                eprintln!("Error: {err}");
+                process::exit(1)
+            }
         }
     }
     content_str.push_str(&config.arguments.join(" "));
@@ -142,7 +160,7 @@ pub async fn run(config: &Config<'_>, api_key: &String) -> Result<(), Box<dyn st
 
     let response_text: GroqResponse = response.json().await?;
     let llm_response = &response_text.choices[0].message.content;
-    println!("Response: {}", llm_response);
+    println!("_Response_: {}\n", llm_response);
 
     let entry = Entry {
         prompt: content_str,
