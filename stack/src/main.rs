@@ -28,8 +28,13 @@ impl<T: std::fmt::Display> std::fmt::Display for Stack<T> {
             .stack
             .iter()
             .map(|x| format!("{}", x))
-            .collect::<Vec<_>>(
-            .join(", ");
+            .fold(String::new(), |acc, x| {
+                if acc.is_empty() {
+                    x
+                } else {
+                    acc + ", " + &x
+                }
+            });
         write!(f, "[{}]", elements)
     }
 }
