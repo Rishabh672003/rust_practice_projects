@@ -1,0 +1,9 @@
+[package]
+name = "my-shell"
+version = "0.1.0"
+authors = ["Rishabh jharishabh2k3@gmail.com"]
+edition = "2021"
+rust-version = "1.80"
+
+[dependencies]
+rustyline = { version = "15.0.0", features = ["derive"] }

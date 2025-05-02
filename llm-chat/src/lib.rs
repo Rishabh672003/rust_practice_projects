@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use std::fs::File;
@@ -121,7 +122,7 @@ pub async fn run(config: &Config<'_>, api_key: &String) -> Result<()> {
         process::exit(1)
     }
 
-    let client = reqwest::Client::new();
+    let client = Client::new();
     let mut content_str = String::new();
 
     match get_history(config) {
