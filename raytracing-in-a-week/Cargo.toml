@@ -1,0 +1,8 @@
+[package]
+name = "raytracing-in-a-week"
+version = "0.1.0"
+edition = "2021"
+default-run = "raytracing-in-a-week"
+
+[dependencies]
+rand = "0.9.0"
