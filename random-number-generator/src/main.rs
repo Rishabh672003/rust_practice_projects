@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use std::process::exit;
 
 use num::bigint::{BigUint, RandBigInt};
+use num::One;
 use rand::thread_rng;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -28,9 +29,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let lower_bigint = BigUint::from(1_u32);
+    let lower_bigint = BigUint::one();
     let upper_bigint = match BigUint::parse_bytes(upper_limit.as_bytes(), 10) {
-        Some(value) => value,
+        Some(value) => {
+            value + BigUint::one()
+        },
         None => {
             eprintln!("Please enter a valid upper range.");
             exit(1)
