@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
         history_filepath: match cli.history_filepath {
             Some(value) => value,
             None => match env::var("HOME") {
-                Ok(value) => value + &String::from("/.local/share/llm.json"),
+                Ok(value) => value + "/.local/share/llm.json",
                 Err(_) => process::exit(1),
             },
         },
